@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}User management{% endblock %}
+{% block actions %}<a class="btn btn-sm btn-primary" href="{{ url_for('admin.user_new') }}"><i class="bi bi-person-plus"></i> New user</a>{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Username</th><th>Full name</th><th>Role</th><th>Linked student</th><th>Status</th><th>Last login</th><th class="text-end">Actions</th></tr></thead>
+      <tbody>
+      {% for u in users %}
+        <tr>
+          <td>{{ u.username }}</td>
+          <td>{{ u.full_name }}</td>
+          <td><span class="tag">{{ u.role }}</span></td>
+          <td>{% if u.linked_student_id %}{{ u.linked_student_id }} · {{ u.linked_student_name }}{% else %}—{% endif %}</td>
+          <td>{% if u.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}
+              {% if u.must_change_password %}<span class="badge text-bg-warning text-dark">Temp password</span>{% endif %}</td>
+          <td class="small text-muted">{{ u.last_login_at|dt }}</td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.user_edit', user_id=u.id) }}">Edit</a>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#reset-{{ u.id }}">Reset password</button>
+            {% if u.id != current_user.id %}
+            <form method="post" action="{{ url_for('admin.user_delete', user_id=u.id) }}" class="d-inline" data-confirm="Delete user '{{ u.username }}'? This cannot be undone.">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        <tr class="collapse" id="reset-{{ u.id }}"><td colspan="7" class="bg-light">
+          <form method="post" action="{{ url_for('admin.user_reset_password', user_id=u.id) }}" class="row g-2 align-items-center">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="col-auto"><label class="col-form-label small" for="pw-{{ u.id }}">Temporary password for {{ u.username }}:</label></div>
+            <div class="col-auto"><input class="form-control form-control-sm" id="pw-{{ u.id }}" name="password" type="text" minlength="8" required></div>
+            <div class="col-auto"><button class="btn btn-sm btn-primary" type="submit">Set temporary password</button></div>
+            <div class="col-auto small text-muted">The user must change it at next login.</div>
+          </form>
+        </td></tr>
+      {% else %}
+        <tr><td colspan="7">{{ empty('bi-people', 'No users') }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

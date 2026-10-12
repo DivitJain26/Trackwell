@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}Alerts{% endblock %}
+{% block crumbs %}<div class="crumbs">Raised when a student is newly predicted High Risk or moves to a higher risk level. Unchanged predictions do not create duplicate alerts.</div>{% endblock %}
+{% block content %}
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link {{ 'active' if status == 'new' }}" href="{{ url_for('alerts.index', status='new') }}">New <span class="badge rounded-pill text-bg-danger ms-1">{{ new_count }}</span></a></li>
+  <li class="nav-item"><a class="nav-link {{ 'active' if status == 'reviewed' }}" href="{{ url_for('alerts.index', status='reviewed') }}">Reviewed</a></li>
+  <li class="nav-item"><a class="nav-link {{ 'active' if status == 'all' }}" href="{{ url_for('alerts.index', status='all') }}">All</a></li>
+</ul>
+<div class="card">
+  {% if alerts %}
+  <div class="table-responsive"><table class="table table-hover mb-0">
+    <thead><tr><th>Raised</th><th>Student</th><th>Type</th><th>Change</th><th>Message</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+    <tbody>
+    {% for a in alerts %}
+      <tr>
+        <td class="small text-muted text-nowrap">{{ a.created_at|dt }}</td>
+        <td><a href="{{ url_for('students.detail', pk=a.student_fk) }}">{{ a.student_id }}</a><div class="small text-muted">{{ a.name }} · {{ a.class_name }}</div></td>
+        <td><span class="tag">{{ 'New high risk' if a.alert_type == 'new_high_risk' else 'Risk increase' }}</span></td>
+        <td class="text-nowrap"><span class="risk-dot {{ a.previous_level|risk_class }}"></span>{{ a.previous_level or 'none' }} <i class="bi bi-arrow-right small"></i> <span class="risk-dot {{ a.new_level|risk_class }}"></span>{{ a.new_level }}</td>
+        <td class="small">{{ a.message }}</td>
+        <td>{% if a.status == 'new' %}<span class="badge text-bg-danger">New</span>{% else %}<span class="badge text-bg-secondary">Reviewed</span><div class="small text-muted">{{ a.reviewed_by_name|dash }} · {{ a.reviewed_at|dt }}</div>{% endif %}
+            {% if a.intervention_fk %}<div class="small"><a href="{{ url_for('interventions.edit', pk=a.intervention_fk) }}">Linked intervention</a></div>{% endif %}</td>
+        <td class="text-end text-nowrap">
+          {% if a.status == 'new' %}
+          <form method="post" action="{{ url_for('alerts.review', pk=a.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.full_path }}">
+            <button class="btn btn-sm btn-outline-secondary" type="submit">Mark reviewed</button>
+            <button class="btn btn-sm btn-primary" type="submit" name="then" value="intervene">Review &amp; intervene</button>
+          </form>
+          {% else %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('students.detail', pk=a.student_fk) }}">View student</a>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody></table></div>
+  {% else %}
+    <div class="card-body">{{ empty('bi-bell-slash', 'No alerts' if status != 'new' else 'No new alerts', 'Alerts appear here after predictions identify new or increasing risk.') }}</div>
+  {% endif %}
+</div>
+{% endblock %}

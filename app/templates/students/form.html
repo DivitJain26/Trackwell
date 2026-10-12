@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field_errors %}
+{% block title %}{{ 'Add student' if mode == 'new' else 'Edit ' ~ student.student_id }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-9">
+<div class="card"><div class="card-header">{{ 'New student record' if mode == 'new' else 'Edit student record' }}</div>
+<div class="card-body">
+  {{ field_errors(errors) }}
+  <form method="post" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h6 class="section-title">Identity</h6>
+    <div class="row g-3 mb-3">
+      <div class="col-md-3"><label class="form-label" for="student_id">Student ID *</label>
+        <input class="form-control" id="student_id" name="student_id" value="{{ raw.student_id }}" maxlength="30" required>
+        <div class="form-text">Unique roll/enrolment number.</div></div>
+      <div class="col-md-5"><label class="form-label" for="name">Full name *</label>
+        <input class="form-control" id="name" name="name" value="{{ raw.name }}" maxlength="100" required></div>
+      <div class="col-md-2"><label class="form-label" for="class_name">Class *</label>
+        <input class="form-control" id="class_name" name="class_name" value="{{ raw.class_name }}" maxlength="50" placeholder="TY CSE A" required></div>
+      <div class="col-md-2"><label class="form-label" for="semester">Semester *</label>
+        <input class="form-control" type="number" min="1" max="8" id="semester" name="semester" value="{{ raw.semester }}" required></div>
+    </div>
+    <h6 class="section-title">Academic indicators</h6>
+    <div class="row g-3 mb-3">
+      <div class="col-md-3"><label class="form-label" for="attendance_pct">Attendance % *</label>
+        <input class="form-control" type="number" step="0.1" min="0" max="100" id="attendance_pct" name="attendance_pct" value="{{ raw.attendance_pct }}" required></div>
+      <div class="col-md-3"><label class="form-label" for="previous_gpa">Previous GPA / SGPA (0-10)</label>
+        <input class="form-control" type="number" step="0.01" min="0" max="10" id="previous_gpa" name="previous_gpa" value="{{ raw.previous_gpa }}"></div>
+      <div class="col-md-3"><label class="form-label" for="quiz_score">Average quiz score %</label>
+        <input class="form-control" type="number" step="0.1" min="0" max="100" id="quiz_score" name="quiz_score" value="{{ raw.quiz_score }}"></div>
+      <div class="col-md-3"><label class="form-label" for="test_score">Average test score %</label>
+        <input class="form-control" type="number" step="0.1" min="0" max="100" id="test_score" name="test_score" value="{{ raw.test_score }}"></div>
+      <div class="col-md-3"><label class="form-label" for="assignment_completion_pct">Assignment completion % *</label>
+        <input class="form-control" type="number" step="0.1" min="0" max="100" id="assignment_completion_pct" name="assignment_completion_pct" value="{{ raw.assignment_completion_pct }}" required></div>
+      <div class="col-md-3"><label class="form-label" for="study_hours">Average daily study hours</label>
+        <input class="form-control" type="number" step="0.1" min="0" max="16" id="study_hours" name="study_hours" value="{{ raw.study_hours }}"></div>
+    </div>
+    <h6 class="section-title">Behavioural indicators</h6>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4"><label class="form-label" for="participation">Class participation *</label>
+        <select class="form-select" id="participation" name="participation" required><option value="">Select…</option>
+          {% for l in ['Low', 'Medium', 'High'] %}<option value="{{ l }}" {{ 'selected' if raw.participation == l }}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="col-md-4"><label class="form-label" for="engagement_level">Engagement level *</label>
+        <select class="form-select" id="engagement_level" name="engagement_level" required><option value="">Select…</option>
+          {% for l in ['Low', 'Medium', 'High'] %}<option value="{{ l }}" {{ 'selected' if raw.engagement_level == l }}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="col-md-4"><label class="form-label" for="self_understanding">Self-reported understanding (1-5)</label>
+        <select class="form-select" id="self_understanding" name="self_understanding"><option value="">Not recorded</option>
+          {% for i in range(1, 6) %}<option value="{{ i }}" {{ 'selected' if raw.self_understanding|string == i|string }}>{{ i }} {{ ['- Very poor', '- Poor', '- Average', '- Good', '- Very good'][i-1] }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-primary" type="submit">{{ 'Add student' if mode == 'new' else 'Save changes' }}</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('students.detail', pk=student.id) if student else url_for('students.list_students') }}">Cancel</a>
+    </div>
+    <div class="form-text mt-2">* required. Historical quiz/test scores (used for the score-trend feature) are recorded from the student's profile page.</div>
+  </form>
+</div></div></div></div>
+{% endblock %}

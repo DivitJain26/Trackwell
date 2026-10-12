@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Documentation{% endblock %}
+{% block crumbs %}<div class="crumbs">How TrackWell works, how predictions should be interpreted, and how to operate the system</div>{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card mb-3"><div class="card-header">About TrackWell</div><div class="card-body">
+      <p>TrackWell is a final-year B.Tech Computer Science &amp; Engineering project at <strong>MIT School of Computing, MIT-ADT University, Pune</strong>, developed by <strong>Arya Phansalkar</strong> and <strong>Divit Jain</strong> (Group BCC21) under the guidance of <strong>Prof. Ujjwala Nivas Salunkhe</strong>.</p>
+      <p class="mb-0">It helps faculty identify students who may be academically at risk before final examinations by collecting academic and behavioural indicators, predicting a Low / Medium / High risk category with a scikit-learn model, explaining the main contributing factors, raising alerts, and tracking interventions. Everything runs locally: there are no external APIs or cloud services.</p>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Workflow</div><div class="card-body">
+      <ol class="mb-0">
+        <li class="mb-1"><strong>Register students</strong> through the form or by importing a CSV (Student management / CSV import). Each student ID must be unique.</li>
+        <li class="mb-1"><strong>Record assessments</strong> on a student's profile to enable the score-trend feature (needs at least two scores).</li>
+        <li class="mb-1"><strong>Train the model</strong> (Model status page or <span class="code">python scripts/train_model.py</span>). Training compares three algorithms and stores a versioned artifact with its evaluation report.</li>
+        <li class="mb-1"><strong>Generate predictions</strong> for all students, one class, or only students without a prediction. New High Risk cases and risk increases create alerts.</li>
+        <li class="mb-1"><strong>Review alerts</strong> and the student's context, then <strong>record interventions</strong> with follow-up dates and outcomes.</li>
+        <li><strong>Students</strong> sign in to see their own indicators, observations, suggested actions and (if enabled in Settings) their risk category.</li>
+      </ol>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Interpreting predictions</div><div class="card-body">
+      <p><strong>Risk category.</strong> The model outputs a probability for Low, Medium and High. The category shown is the class with the highest probability. The risk score (0-100) is 100 × (0.5 × P(Medium) + P(High)) and is used for ranking only.</p>
+      <p><strong><span class="tag model">Model</span> Model-derived factors</strong> are computed by replacing one indicator at a time with the training-set typical value (median or mode) and measuring the change in the risk score. They reflect what the trained model actually responds to for this student.</p>
+      <p><strong><span class="tag rule">Descriptive</span> Observations</strong> compare a student's indicators with reference levels configured by the administrator (for example attendance below 75%). They are plain rules and are deliberately labelled separately so they are never mistaken for model output.</p>
+      <p class="mb-0"><strong>Limitations.</strong> The bundled training data is synthetic. Metrics obtained on it show that the pipeline works but say nothing about real students. Predictions are decision-support signals and must always be reviewed by faculty before acting. Intervention outcomes are not fed back into training automatically; retraining requires a documented labelled dataset and an explicit training action.</p>
+    </div></div>
+
+    <div class="card mb-3"><div class="card-header">Target definition and model selection</div><div class="card-body small">
+      <p>Each training row contains the indicators available before final exams plus <span class="code">final_exam_pct</span>, from which the label is derived: <strong>High</strong> &lt; 40%, <strong>Medium</strong> 40-55%, <strong>Low</strong> ≥ 55%. The exam result and the label are never used as inputs, which prevents target leakage.</p>
+      <p>Candidates: Logistic Regression, Random Forest, Gradient Boosting. Each is evaluated with stratified 5-fold cross-validation on the 80% training split and then on the 20% held-out split. The model with the highest <em>0.5 × macro F1 + 0.5 × recall(High)</em> on the held-out split is selected and refitted on all labelled rows. Preprocessing (median/most-frequent imputation, scaling, one-hot encoding) is part of the pipeline and is fitted only on training data.</p>
+      <p class="mb-0">Artifacts are stored in <span class="code">instance/models/</span> with a SHA-256 checksum recorded in the database. The application refuses to load an artifact whose checksum does not match, so arbitrary pickle files cannot be executed.</p>
+    </div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card mb-3"><div class="card-header">Roles</div><div class="card-body small">
+      <p><strong>Admin</strong> – manages user accounts, settings, model activation, plus everything faculty can do.</p>
+      <p><strong>Faculty</strong> – manages students, imports data, runs predictions, reviews alerts, records interventions, trains models.</p>
+      <p class="mb-0"><strong>Student</strong> – sees only their own record. Faculty notes and other students' data are never shown.</p>
+    </div></div>
+    <div class="card mb-3"><div class="card-header">Operating the system</div><div class="card-body small">
+      <p><strong>Start:</strong> run <span class="code">run.bat</span> (Windows) or <span class="code">./run.sh</span> (macOS/Linux), then open <span class="code">http://127.0.0.1:5000</span>.</p>
+      <p><strong>First admin:</strong> the login page offers a one-time setup form while no administrator account exists, or run <span class="code">python scripts/create_admin.py</span>.</p>
+      <p><strong>Demo data:</strong> <span class="code">python scripts/seed_demo.py</span> imports the synthetic students and creates demo faculty/student accounts that must change their password at first login.</p>
+      <p><strong>Backup:</strong> <span class="code">python scripts/backup_db.py</span> copies the database to <span class="code">instance/backups/</span>.</p>
+      <p><strong>Reset:</strong> stop the app and delete <span class="code">instance/trackwell.db</span>.</p>
+      <p class="mb-0"><strong>Tests:</strong> <span class="code">python -m pytest</span>.</p>
+    </div></div>
+    <div class="card"><div class="card-header">Security notes</div><div class="card-body small">
+      <ul class="mb-0 ps-3">
+        <li>Passwords are stored as salted hashes (Werkzeug scrypt).</li>
+        <li>Every state-changing form carries a CSRF token.</li>
+        <li>Authorisation is enforced on the server for every route.</li>
+        <li>Session cookies are HttpOnly and SameSite=Lax.</li>
+        <li>Uploads are limited to 5 MB CSV files and parsed with pandas; nothing is executed.</li>
+        <li>Logs in <span class="code">instance/logs/</span> never contain passwords.</li>
+      </ul>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

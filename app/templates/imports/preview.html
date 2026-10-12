@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Import preview{% endblock %}
+{% block crumbs %}<div class="crumbs">Validation report for <strong>{{ filename }}</strong></div>{% endblock %}
+{% block content %}
+{% set s = report.summary %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card stat border-accent"><div class="label">Rows in file</div><div class="value">{{ s.total }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat border-low"><div class="label">Valid (new)</div><div class="value">{{ s.valid }}</div><div class="sub">will be added</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat border-medium"><div class="label">Existing IDs</div><div class="value">{{ s.existing }}</div><div class="sub">skip or update</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat border-high"><div class="label">Invalid</div><div class="value">{{ s.invalid }}</div><div class="sub">will not be imported</div></div></div>
+</div>
+{% if report.missing_columns %}
+  <div class="alert alert-danger"><strong>Missing required columns:</strong> {{ report.missing_columns|join(', ') }}. Fix the header row and upload again. <a class="alert-link" href="{{ url_for('imports.template') }}">Download the template</a>.</div>
+{% endif %}
+{% if report.extra_columns %}
+  <div class="alert alert-secondary py-2 small"><strong>Ignored columns:</strong> {{ report.extra_columns|join(', ') }}</div>
+{% endif %}
+
+<div class="card mb-3"><div class="card-header">2. Confirm import</div><div class="card-body">
+  {% if report.can_import %}
+  <form method="post" action="{{ url_for('imports.confirm') }}" class="row g-3 align-items-end">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="token" value="{{ token }}">
+    <div class="col-md-5">
+      <label class="form-label">Rows whose student ID already exists ({{ s.existing }})</label>
+      <div class="form-check"><input class="form-check-input" type="radio" name="on_existing" id="skip" value="skip" checked><label class="form-check-label" for="skip">Skip them (keep current records)</label></div>
+      <div class="form-check"><input class="form-check-input" type="radio" name="on_existing" id="update" value="update"><label class="form-check-label" for="update">Update them with the values from this file</label></div>
+    </div>
+    <div class="col-md-4">
+      {% if s.invalid %}
+      <div class="form-check"><input class="form-check-input" type="checkbox" name="acknowledge_invalid" id="ack" value="1" required>
+        <label class="form-check-label" for="ack">I understand that {{ s.invalid }} invalid row(s) will <strong>not</strong> be imported</label></div>
+      {% else %}<span class="small text-success"><i class="bi bi-check-circle"></i> All rows passed validation.</span>{% endif %}
+    </div>
+    <div class="col-md-3 d-flex gap-2 justify-content-end">
+      <button class="btn btn-primary" type="submit" data-loading="Importing…"><i class="bi bi-database-add"></i> Import {{ s.valid + s.existing }} row(s)</button>
+    </div>
+  </form>
+  {% else %}
+    <p class="mb-2 text-danger">Nothing can be imported from this file: {% if report.missing_columns %}required columns are missing{% else %}no row passed validation{% endif %}.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('imports.cancel') }}" class="mt-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-link btn-sm p-0" type="submit">Cancel and upload a different file</button>
+  </form>
+</div></div>
+
+<div class="card"><div class="card-header">Row-by-row validation</div>
+<div class="table-responsive" style="max-height: 520px">
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Line</th><th>Status</th>{% for c in columns %}<th>{{ c }}</th>{% endfor %}<th>Problems</th></tr></thead>
+    <tbody>
+    {% for r in report.rows %}
+      <tr class="{{ 'table-danger' if r.status == 'invalid' else 'table-warning' if r.status == 'existing' else '' }}">
+        <td class="text-muted">{{ r.line }}</td>
+        <td>{% if r.status == 'valid' %}<span class="badge text-bg-success">Valid</span>{% elif r.status == 'existing' %}<span class="badge text-bg-warning text-dark">Exists</span>{% else %}<span class="badge text-bg-danger">Invalid</span>{% endif %}</td>
+        {% for c in columns %}<td class="small">{{ r.raw[c] }}</td>{% endfor %}
+        <td class="small">{% for e in r.errors %}<div>{{ e }}</div>{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endblock %}

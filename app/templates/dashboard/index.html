@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% from "_macros.html" import risk_badge, empty %}
+{% block title %}Faculty dashboard{% endblock %}
+{% block crumbs %}<div class="crumbs">Overview of registered students, risk predictions and follow-up work</div>{% endblock %}
+{% block actions %}
+  <a class="btn btn-sm btn-primary" href="{{ url_for('predictions.index') }}"><i class="bi bi-activity"></i> Run predictions</a>
+{% endblock %}
+{% block content %}
+{% if not summary.model.available %}
+  <div class="alert alert-warning py-2"><i class="bi bi-cpu me-1"></i> {{ summary.model.message }}
+    <a class="alert-link ms-1" href="{{ url_for('model.index') }}">Open model page</a></div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card stat border-accent">
+    <div class="label">Registered students</div><div class="value">{{ summary.total_students }}</div>
+    <div class="sub">{{ summary.unpredicted }} without a prediction</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat border-high">
+    <div class="label">High risk</div><div class="value">{{ summary.risk_counts.High }}</div>
+    <div class="sub">{{ summary.new_alerts }} unreviewed alert(s)</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat border-medium">
+    <div class="label">Medium risk</div><div class="value">{{ summary.risk_counts.Medium }}</div>
+    <div class="sub">of {{ summary.predicted_total }} predicted</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat border-low">
+    <div class="label">Low risk</div><div class="value">{{ summary.risk_counts.Low }}</div>
+    <div class="sub">of {{ summary.predicted_total }} predicted</div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Risk distribution <span class="text-muted small">· latest prediction per student</span></div>
+      <div class="card-body">
+        {% if summary.predicted_total %}
+          <div class="chart-box"><canvas id="riskChart"></canvas></div>
+          <div class="text-muted small mt-2">Last prediction run: {{ summary.last_prediction_at|dt }}{% if summary.model.version %} · model {{ summary.model.version }}{% endif %}</div>
+        {% else %}
+          {{ empty('bi-pie-chart', 'No predictions yet', 'Run the model to see how students are distributed across risk levels.', url_for('predictions.index'), 'Go to predictions') }}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Attendance &amp; assignments</div>
+      <div class="card-body">
+        {% if summary.total_students %}
+          <div class="row text-center mb-2">
+            <div class="col-6"><div class="stat p-1"><div class="label">Avg attendance</div><div class="value">{{ summary.avg_attendance|pct }}</div></div></div>
+            <div class="col-6"><div class="stat p-1"><div class="label">Avg assignments</div><div class="value">{{ summary.avg_assignment|pct(0) }}</div></div></div>
+          </div>
+          <div class="chart-box sm"><canvas id="attendanceChart"></canvas></div>
+          <div class="text-muted small mt-2">{{ summary.low_attendance_count }} student(s) below 75% attendance.</div>
+        {% else %}
+          {{ empty('bi-people', 'No students registered', 'Add students manually or import a CSV file.', url_for('students.new'), 'Add a student') }}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Risk by class</div>
+      <div class="card-body">
+        {% if summary.predicted_total %}
+          <div class="chart-box"><canvas id="classChart"></canvas></div>
+        {% else %}
+          {{ empty('bi-bar-chart', 'Nothing to chart yet', 'Class-level risk counts appear after predictions are generated.') }}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Highest-risk students</span>
+        <a class="small" href="{{ url_for('students.list_students', risk='High', sort='risk') }}">View all</a>
+      </div>
+      {% if high_risk %}
+      <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0">
+          <thead><tr><th>ID</th><th>Name</th><th>Class</th><th>Attendance</th><th>Risk</th><th>Predicted</th></tr></thead>
+          <tbody>
+          {% for s in high_risk %}
+            <tr>
+              <td><a href="{{ url_for('students.detail', pk=s.id) }}">{{ s.student_id }}</a></td>
+              <td>{{ s.name }}</td>
+              <td>{{ s.class_name }} · S{{ s.semester }}</td>
+              <td>{{ s.attendance_pct|pct }}</td>
+              <td>{{ risk_badge(s.risk_level, s.risk_score) }}</td>
+              <td class="text-muted small">{{ s.predicted_at|dt }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="card-body">{{ empty('bi-check2-circle', 'No students are currently predicted High Risk', 'Students appear here once predictions identify them as high risk.') }}</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>New alerts</span><a class="small" href="{{ url_for('alerts.index') }}">All alerts</a>
+      </div>
+      {% if recent_alerts %}
+        <ul class="list-group list-group-flush">
+          {% for a in recent_alerts %}
+            <li class="list-group-item small">
+              <span class="risk-dot {{ a.new_level|risk_class }}"></span>
+              <a href="{{ url_for('students.detail', pk=a.student_fk) }}">{{ a.student_id }}</a> · {{ a.message }}
+              <div class="text-muted">{{ a.created_at|dt }}</div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="card-body">{{ empty('bi-bell-slash', 'No unreviewed alerts', 'Alerts are raised when a student is newly predicted High Risk or their risk level increases.') }}</div>
+      {% endif %}
+    </div>
+    <div class="card mt-3">
+      <div class="card-header">Interventions</div>
+      <div class="card-body small">
+        <div class="d-flex justify-content-between"><span>Planned</span><strong>{{ summary.intervention_counts['Planned'] }}</strong></div>
+        <div class="d-flex justify-content-between"><span>In progress</span><strong>{{ summary.intervention_counts['In Progress'] }}</strong></div>
+        <div class="d-flex justify-content-between"><span>Completed</span><strong>{{ summary.intervention_counts['Completed'] }}</strong></div>
+        <div class="d-flex justify-content-between text-danger"><span>Overdue follow-ups</span><strong>{{ summary.overdue_followups }}</strong></div>
+        <a class="d-block mt-2" href="{{ url_for('interventions.index') }}">Open intervention tracking</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  TrackWell.riskDistributionChart("riskChart", {{ summary.risk_counts|tojson }}, {{ summary.unpredicted|tojson }});
+  TrackWell.attendanceChart("attendanceChart", {{ summary.attendance_bands|tojson }});
+  TrackWell.classRiskChart("classChart", {{ summary.by_class|tojson }});
+</script>
+{% endblock %}

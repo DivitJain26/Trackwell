@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}Admin dashboard{% endblock %}
+{% block crumbs %}<div class="crumbs">System overview: accounts, data, model and recent activity</div>{% endblock %}
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card stat border-accent"><div class="label">User accounts</div><div class="value">{{ summary.user_total }}</div>
+    <div class="sub">{{ summary.role_counts.admin }} admin · {{ summary.role_counts.faculty }} faculty · {{ summary.role_counts.student }} student</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat border-accent"><div class="label">Students</div><div class="value">{{ summary.total_students }}</div>
+    <div class="sub">{{ summary.predicted_total }} with predictions</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat border-high"><div class="label">High risk</div><div class="value">{{ summary.risk_counts.High }}</div>
+    <div class="sub">{{ summary.new_alerts }} unreviewed alert(s)</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat {{ 'border-low' if summary.model.available else 'border-medium' }}"><div class="label">Active model</div>
+    <div class="value">{{ summary.model.version or 'None' }}</div>
+    <div class="sub">{{ summary.model.algorithm if summary.model.available else 'No trained model' }}</div></div></div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Risk distribution</div>
+      <div class="card-body">
+        {% if summary.predicted_total %}<div class="chart-box"><canvas id="riskChart"></canvas></div>
+        {% else %}{{ empty('bi-pie-chart', 'No predictions yet', 'Faculty can generate predictions once a model is trained.') }}{% endif %}
+      </div>
+    </div>
+    <div class="card mt-3">
+      <div class="card-header">Quick actions</div>
+      <div class="list-group list-group-flush">
+        <a class="list-group-item list-group-item-action" href="{{ url_for('admin.user_new') }}"><i class="bi bi-person-plus me-2"></i>Create a faculty or student account</a>
+        <a class="list-group-item list-group-item-action" href="{{ url_for('model.index') }}"><i class="bi bi-cpu me-2"></i>Train or review the model</a>
+        <a class="list-group-item list-group-item-action" href="{{ url_for('admin.settings') }}"><i class="bi bi-sliders me-2"></i>Adjust reference levels and student visibility</a>
+        <a class="list-group-item list-group-item-action" href="{{ url_for('imports.upload') }}"><i class="bi bi-file-earmark-arrow-up me-2"></i>Import student data from CSV</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between"><span>Recent activity</span><a class="small" href="{{ url_for('admin.audit_log') }}">Full audit log</a></div>
+      {% if recent_events %}
+      <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+        <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Entity</th></tr></thead>
+        <tbody>{% for e in recent_events %}
+          <tr><td class="text-muted small">{{ e.created_at|dt }}</td><td>{{ e.username|dash }}</td><td>{{ e.action }}</td><td class="small">{{ e.entity_type|dash }} {{ e.entity_id or '' }}</td></tr>
+        {% endfor %}</tbody></table></div>
+      {% else %}<div class="card-body">{{ empty('bi-journal', 'No activity recorded yet') }}</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>TrackWell.riskDistributionChart("riskChart", {{ summary.risk_counts|tojson }}, {{ summary.unpredicted|tojson }});</script>{% endblock %}

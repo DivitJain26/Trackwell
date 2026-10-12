@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Access denied{% endblock %}
+{% block content %}
+<div class="card"><div class="card-body empty-state">
+  <i class="bi bi-exclamation-circle"></i>
+  <div class="h5 text-body">403 · Access denied</div>
+  <p class="mb-3">You do not have permission to view this page. Your role does not allow this action.</p>
+  <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.index') }}">Go to home page</a>
+</div></div>
+{% endblock %}

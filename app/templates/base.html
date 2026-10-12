@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}TrackWell{% endblock %} · TrackWell</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/trackwell.css') }}">
+</head>
+<body>
+{% set role = current_user.role if current_user else None %}
+<div class="tw-shell">
+  <aside class="tw-sidebar">
+    <a class="tw-brand d-block" href="{{ url_for('main.index') }}">
+      <span class="name">TrackWell</span>
+      <span class="tagline">At-Risk Student Identification &amp; Early Intervention</span>
+    </a>
+    <nav class="tw-nav">
+      {% if role in ('admin', 'faculty') %}
+        <div class="section">Overview</div>
+        {% if role == 'admin' %}
+          <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if request.endpoint == 'admin.dashboard' }}"><i class="bi bi-speedometer2"></i> Admin dashboard</a>
+        {% endif %}
+        <a href="{{ url_for('dashboard.index') }}" class="{{ 'active' if request.endpoint == 'dashboard.index' }}"><i class="bi bi-grid-1x2"></i> Faculty dashboard</a>
+        <a href="{{ url_for('alerts.index') }}" class="{{ 'active' if request.blueprint == 'alerts' }}"><i class="bi bi-bell"></i> Alerts
+          {% if new_alert_count %}<span class="badge rounded-pill text-bg-danger">{{ new_alert_count }}</span>{% endif %}</a>
+        <div class="section">Students</div>
+        <a href="{{ url_for('students.list_students') }}" class="{{ 'active' if request.blueprint == 'students' }}"><i class="bi bi-people"></i> Student management</a>
+        <a href="{{ url_for('imports.upload') }}" class="{{ 'active' if request.blueprint == 'imports' }}"><i class="bi bi-file-earmark-arrow-up"></i> CSV import</a>
+        <a href="{{ url_for('predictions.index') }}" class="{{ 'active' if request.blueprint == 'predictions' }}"><i class="bi bi-activity"></i> Risk predictions</a>
+        <a href="{{ url_for('interventions.index') }}" class="{{ 'active' if request.blueprint == 'interventions' }}"><i class="bi bi-clipboard-check"></i> Interventions</a>
+        <div class="section">Model</div>
+        <a href="{{ url_for('model.index') }}" class="{{ 'active' if request.blueprint == 'model' }}"><i class="bi bi-cpu"></i> Model status</a>
+        {% if role == 'admin' %}
+          <div class="section">Administration</div>
+          <a href="{{ url_for('admin.users') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.user') }}"><i class="bi bi-person-gear"></i> User management</a>
+          <a href="{{ url_for('admin.settings') }}" class="{{ 'active' if request.endpoint == 'admin.settings' }}"><i class="bi bi-sliders"></i> Settings</a>
+          <a href="{{ url_for('admin.audit_log') }}" class="{{ 'active' if request.endpoint == 'admin.audit_log' }}"><i class="bi bi-journal-text"></i> Audit log</a>
+        {% endif %}
+      {% elif role == 'student' %}
+        <div class="section">My account</div>
+        <a href="{{ url_for('portal.index') }}" class="{{ 'active' if request.blueprint == 'portal' }}"><i class="bi bi-person-badge"></i> My dashboard</a>
+      {% endif %}
+      {% if current_user %}
+        <div class="section">Help</div>
+        <a href="{{ url_for('main.documentation') }}" class="{{ 'active' if request.endpoint == 'main.documentation' }}"><i class="bi bi-book"></i> Documentation</a>
+        <a href="{{ url_for('auth.change_password') }}" class="{{ 'active' if request.endpoint == 'auth.change_password' }}"><i class="bi bi-key"></i> Change password</a>
+      {% endif %}
+    </nav>
+    <div class="tw-sidebar-footer">
+      {% if current_user %}<strong>{{ current_user.full_name }}</strong>{{ current_user.role|capitalize }} · v{{ app_version }}{% endif %}
+    </div>
+  </aside>
+
+  <div class="tw-main">
+    <header class="tw-topbar">
+      <div>
+        <h1>{% block page_title %}{{ self.title() }}{% endblock %}</h1>
+        {% block crumbs %}{% endblock %}
+      </div>
+      <div class="actions d-flex align-items-center gap-2">
+        {% block actions %}{% endblock %}
+        {% if current_user %}
+          <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="bi bi-box-arrow-right"></i> Sign out</button>
+          </form>
+        {% endif %}
+      </div>
+    </header>
+
+    <main class="tw-content">
+      <div class="container-fluid px-0">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show py-2" role="alert" {% if category == 'success' %}data-autodismiss{% endif %}>
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.js') }}"></script>
+<script src="{{ url_for('static', filename='js/trackwell.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

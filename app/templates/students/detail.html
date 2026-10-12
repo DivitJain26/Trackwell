@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% from "_macros.html" import risk_badge, prob_bar, factor_rows, observation_list, empty, status_badge %}
+{% block title %}{{ student.name }}{% endblock %}
+{% block page_title %}{{ student.name }} <span class="text-muted fw-normal">· {{ student.student_id }}</span>{% endblock %}
+{% block crumbs %}<div class="crumbs">{{ student.class_name }} · Semester {{ student.semester }} · updated {{ student.updated_at|dt }}</div>{% endblock %}
+{% block actions %}
+  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('students.edit', pk=student.id) }}"><i class="bi bi-pencil"></i> Edit</a>
+  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('interventions.new', student=student.id) }}"><i class="bi bi-clipboard-plus"></i> Record intervention</a>
+  <form method="post" action="{{ url_for('students.predict', pk=student.id) }}" class="d-inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-sm btn-primary" type="submit" {{ 'disabled' if not model.available }} data-loading="Predicting…"><i class="bi bi-activity"></i> {{ 'Re-run prediction' if prediction else 'Predict risk' }}</button>
+  </form>
+{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header">Academic &amp; behavioural indicators</div>
+      <div class="card-body">
+        <dl class="kv mb-0">
+          <dt>Attendance</dt><dd>{{ student.attendance_pct|pct }}</dd>
+          <dt>Previous GPA / SGPA</dt><dd>{{ student.previous_gpa|num(2) }}</dd>
+          <dt>Average quiz score</dt><dd>{{ student.quiz_score|pct(0) }}</dd>
+          <dt>Average test score</dt><dd>{{ student.test_score|pct(0) }}</dd>
+          <dt>Assignment completion</dt><dd>{{ student.assignment_completion_pct|pct(0) }}</dd>
+          <dt>Daily study hours</dt><dd>{{ student.study_hours|num(1) }}</dd>
+          <dt>Class participation</dt><dd>{{ student.participation }}</dd>
+          <dt>Engagement level</dt><dd>{{ student.engagement_level }}</dd>
+          <dt>Self-reported understanding</dt><dd>{% if student.self_understanding %}{{ student.self_understanding }} / 5{% else %}—{% endif %}</dd>
+          <dt>Score trend</dt><dd>{% if trend is not none %}{{ '%+.1f'|format(trend) }} points{% else %}<span class="text-muted">needs 2+ assessments</span>{% endif %}</dd>
+        </dl>
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header"><span class="tag rule me-1">Descriptive</span> Observations vs. reference levels</div>
+      <div class="card-body">
+        {{ observation_list(observations) }}
+        <div class="small text-muted mt-2">Based on administrator-configured reference levels, not on the model.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">Student login</div>
+      <div class="card-body small">
+        {% if login_account %}Account <strong>{{ login_account.username }}</strong> is linked to this record{% if not login_account.is_active %} (inactive){% endif %}.
+        {% else %}No student login is linked. {% if current_user.role == 'admin' %}<a href="{{ url_for('admin.user_new') }}">Create one</a>.{% else %}An administrator can create one.{% endif %}{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><span class="tag model me-1">Model</span> Risk prediction</span>
+        {% if prediction %}<span class="small text-muted">{{ prediction.created_at|dt }} · model {{ prediction.model_version }} ({{ prediction.algorithm }})</span>{% endif %}
+      </div>
+      <div class="card-body">
+        {% if prediction %}
+          <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+            <span class="fs-6">{{ risk_badge(prediction.risk_level) }}</span>
+            <div class="flex-grow-1" style="min-width: 220px">
+              {{ prob_bar(prediction.prob_low, prediction.prob_medium, prediction.prob_high) }}
+              <div class="small text-muted d-flex justify-content-between mt-1">
+                <span>Low {{ (prediction.prob_low*100)|round(0)|int }}%</span><span>Medium {{ (prediction.prob_medium*100)|round(0)|int }}%</span><span>High {{ (prediction.prob_high*100)|round(0)|int }}%</span>
+              </div>
+            </div>
+            <div class="text-end"><div class="small text-muted">Risk score</div><div class="fs-5 fw-semibold">{{ prediction.risk_score|num(0) }}<span class="text-muted fs-6">/100</span></div></div>
+          </div>
+          <h6 class="section-title">Model-derived contributing factors</h6>
+          {% if explanation.model_factors %}
+            {{ factor_rows(explanation.model_factors) }}
+            <div class="small text-muted mt-2">Each value shows how many risk-score points this indicator adds (red, pushes towards risk) or removes (green) compared with replacing it by the training-set typical value, holding other indicators fixed.</div>
+          {% else %}<p class="text-muted small">No factor breakdown stored for this prediction.</p>{% endif %}
+          <div class="alert alert-light border small mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>Predictions are decision-support signals produced by a statistical model and are not a final judgement about the student. Review the full context before deciding on an intervention.</div>
+        {% elif not model.available %}
+          {{ empty('bi-cpu', 'No trained model available', model.message, url_for('model.index'), 'Open model page') }}
+        {% else %}
+          {{ empty('bi-activity', 'No prediction yet', 'Use "Predict risk" to run the active model (' ~ model.version ~ ') for this student.') }}
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-3" id="assessments">
+      <div class="card-header d-flex justify-content-between align-items-center"><span>Assessment history <span class="text-muted small">· used for the score-trend feature</span></span></div>
+      <div class="card-body">
+        {% if assessments|length >= 2 %}<div class="chart-box sm mb-3"><canvas id="trendChart"></canvas></div>{% endif %}
+        {% if assessments %}
+          <div class="table-responsive"><table class="table table-sm mb-3">
+            <thead><tr><th>Date</th><th>Type</th><th>Title</th><th>Score</th><th></th></tr></thead>
+            <tbody>{% for a in assessments %}
+              <tr><td>{{ a.recorded_on }}</td><td>{{ a.assessment_type }}</td><td>{{ a.title }}</td><td>{{ a.score_pct|pct(0) }}</td>
+                <td class="text-end"><form method="post" action="{{ url_for('students.delete_assessment', pk=student.id, aid=a.id) }}" data-confirm="Remove this assessment?">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-link text-danger p-0" type="submit">Remove</button></form></td></tr>
+            {% endfor %}</tbody></table></div>
+        {% else %}<p class="text-muted small">No assessments recorded. Add at least two to compute a score trend.</p>{% endif %}
+        <form method="post" action="{{ url_for('students.add_assessment', pk=student.id) }}" class="row g-2 align-items-end">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="col-md-2"><label class="form-label small mb-0" for="a_type">Type</label>
+            <select class="form-select form-select-sm" id="a_type" name="assessment_type">{% for t in assessment_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}</select></div>
+          <div class="col-md-4"><label class="form-label small mb-0" for="a_title">Title</label><input class="form-control form-control-sm" id="a_title" name="title" maxlength="80" placeholder="Unit test 2" required></div>
+          <div class="col-md-2"><label class="form-label small mb-0" for="a_score">Score %</label><input class="form-control form-control-sm" type="number" step="0.1" min="0" max="100" id="a_score" name="score_pct" required></div>
+          <div class="col-md-2"><label class="form-label small mb-0" for="a_date">Date</label><input class="form-control form-control-sm" type="date" id="a_date" name="recorded_on" value="{{ today }}" required></div>
+          <div class="col-md-2"><button class="btn btn-sm btn-outline-primary w-100" type="submit">Add</button></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mb-3" id="interventions">
+      <div class="card-header d-flex justify-content-between align-items-center"><span>Intervention history</span>
+        <a class="small" href="{{ url_for('interventions.new', student=student.id) }}">Record new</a></div>
+      {% if interventions %}
+        <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+          <thead><tr><th>Date</th><th>Type</th><th>Faculty</th><th>Status</th><th>Follow-up</th><th>Outcome</th><th></th></tr></thead>
+          <tbody>{% for i in interventions %}
+            <tr><td>{{ i.intervention_date }}</td><td>{{ i.intervention_type }}</td><td>{{ i.faculty_name|dash }}</td><td>{{ status_badge(i.status) }}</td>
+              <td>{{ i.follow_up_date|dash }}</td><td class="small">{{ i.follow_up_outcome|dash }}</td>
+              <td class="text-end"><a class="btn btn-sm btn-link p-0" href="{{ url_for('interventions.edit', pk=i.id) }}">Edit</a></td></tr>
+            {% if i.notes %}<tr><td></td><td colspan="6" class="small text-muted pt-0">Notes: {{ i.notes }}</td></tr>{% endif %}
+          {% endfor %}</tbody></table></div>
+      {% else %}<div class="card-body">{{ empty('bi-clipboard', 'No interventions recorded', 'Record mentoring, practice sessions, attendance follow-ups or referrals here.') }}</div>{% endif %}
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-6"><div class="card h-100"><div class="card-header">Prediction history</div>
+        {% if history %}<ul class="list-group list-group-flush small">{% for h in history %}
+          <li class="list-group-item d-flex justify-content-between"><span>{{ h.created_at|dt }} · {{ h.model_version }}</span>{{ risk_badge(h.risk_level, h.risk_score) }}</li>{% endfor %}</ul>
+        {% else %}<div class="card-body small text-muted">No predictions yet.</div>{% endif %}</div></div>
+      <div class="col-md-6"><div class="card h-100"><div class="card-header">Alerts</div>
+        {% if alerts %}<ul class="list-group list-group-flush small">{% for a in alerts %}
+          <li class="list-group-item"><span class="risk-dot {{ a.new_level|risk_class }}"></span>{{ a.message }}
+            <div class="text-muted">{{ a.created_at|dt }} · {{ a.status }}{% if a.reviewed_by_name %} by {{ a.reviewed_by_name }}{% endif %}</div></li>{% endfor %}</ul>
+        {% else %}<div class="card-body small text-muted">No alerts for this student.</div>{% endif %}</div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  (function(){
+    var pts = [];
+    {% for a in assessments %}pts.push({label: "{{ a.recorded_on }} · {{ a.title|e }}", score: {{ a.score_pct }}});{% endfor %}
+    TrackWell.scoreTrendChart("trendChart", pts);
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field_errors %}
+{% block title %}{{ 'New user' if mode == 'new' else 'Edit user' }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-6">
+<div class="card"><div class="card-header">{{ 'Create account' if mode == 'new' else 'Edit ' ~ user.username }}</div>
+<div class="card-body">
+  {{ field_errors(errors) }}
+  <form method="post" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if mode == 'new' %}
+    <div class="mb-3"><label class="form-label" for="username">Username</label>
+      <input class="form-control" id="username" name="username" value="{{ data.username or '' }}" required></div>
+    {% endif %}
+    <div class="mb-3"><label class="form-label" for="full_name">Full name</label>
+      <input class="form-control" id="full_name" name="full_name" value="{{ data.full_name or '' }}" required></div>
+    <div class="mb-3"><label class="form-label" for="role">Role</label>
+      <select class="form-select" id="role" name="role">
+        {% for r in ['admin', 'faculty', 'student'] %}<option value="{{ r }}" {{ 'selected' if data.role == r }}>{{ r|capitalize }}</option>{% endfor %}
+      </select>
+      <div class="form-text">Admins manage accounts and settings; faculty manage students, predictions and interventions; students see only their own record.</div></div>
+    <div class="mb-3" id="student-link"><label class="form-label" for="student_id">Linked student ID <span class="text-muted">(student role only)</span></label>
+      <input class="form-control" id="student_id" name="student_id" value="{{ data.student_id or '' }}" placeholder="e.g. CSE21001">
+      <div class="form-text">Must match an existing student record. The student will only see this record.</div></div>
+    {% if mode == 'new' %}
+    <div class="mb-3"><label class="form-label" for="password">Initial password</label>
+      <input class="form-control" id="password" name="password" type="text" minlength="8" required>
+      <div class="form-text">At least 8 characters including a digit or symbol. Share it with the user privately.</div></div>
+    <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="must_change_password" name="must_change_password" value="1" {{ 'checked' if data.must_change_password }}>
+      <label class="form-check-label" for="must_change_password">Require password change at first login (recommended)</label></div>
+    {% else %}
+    <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1" {{ 'checked' if data.is_active }}>
+      <label class="form-check-label" for="is_active">Account is active</label></div>
+    {% endif %}
+    <div class="d-flex gap-2">
+      <button class="btn btn-primary" type="submit">{{ 'Create user' if mode == 'new' else 'Save changes' }}</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('admin.users') }}">Cancel</a>
+    </div>
+  </form>
+</div></div></div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  (function () {
+    var role = document.getElementById("role"), box = document.getElementById("student-link");
+    function toggle() { box.style.display = role.value === "student" ? "" : "none"; }
+    role.addEventListener("change", toggle); toggle();
+  })();
+</script>
+{% endblock %}

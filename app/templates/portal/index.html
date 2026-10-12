@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_macros.html" import risk_badge, factor_rows, observation_list, empty %}
+{% block title %}My dashboard{% endblock %}
+{% block page_title %}Welcome, {{ student.name }}{% endblock %}
+{% block crumbs %}<div class="crumbs">{{ student.student_id }} · {{ student.class_name }} · Semester {{ student.semester }}</div>{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card mb-3"><div class="card-header">My academic indicators</div><div class="card-body">
+      <dl class="kv mb-0">
+        <dt>Attendance</dt><dd>{{ student.attendance_pct|pct }}</dd>
+        <dt>Previous GPA / SGPA</dt><dd>{{ student.previous_gpa|num(2) }}</dd>
+        <dt>Average quiz score</dt><dd>{{ student.quiz_score|pct(0) }}</dd>
+        <dt>Average test score</dt><dd>{{ student.test_score|pct(0) }}</dd>
+        <dt>Assignment completion</dt><dd>{{ student.assignment_completion_pct|pct(0) }}</dd>
+        <dt>Daily study hours</dt><dd>{{ student.study_hours|num(1) }}</dd>
+        <dt>Participation</dt><dd>{{ student.participation }}</dd>
+        <dt>Engagement</dt><dd>{{ student.engagement_level }}</dd>
+        <dt>Self-reported understanding</dt><dd>{% if student.self_understanding %}{{ student.self_understanding }} / 5{% else %}—{% endif %}</dd>
+        <dt>Score trend</dt><dd>{% if trend is not none %}{{ '%+.1f'|format(trend) }} points{% else %}—{% endif %}</dd>
+      </dl>
+    </div></div>
+    <div class="card"><div class="card-header">My assessments</div>
+      {% if assessments %}<div class="card-body">{% if assessments|length >= 2 %}<div class="chart-box sm mb-2"><canvas id="trendChart"></canvas></div>{% endif %}
+        <table class="table table-sm mb-0"><tbody>{% for a in assessments %}<tr><td class="small text-muted">{{ a.recorded_on }}</td><td>{{ a.title }}</td><td class="text-end">{{ a.score_pct|pct(0) }}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<div class="card-body small text-muted">No assessment scores have been recorded yet.</div>{% endif %}</div>
+  </div>
+  <div class="col-lg-8">
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="card h-100"><div class="card-header">Areas to focus on</div><div class="card-body">
+          {{ observation_list(observations) }}
+          <div class="small text-muted mt-2">Compared with the reference levels set by {{ settings.institution_name }}.</div>
+        </div></div>
+      </div>
+      <div class="col-md-6">
+        <div class="card h-100"><div class="card-header">Suggested actions</div><div class="card-body">
+          <ol class="mb-0 ps-3 small">{% for s in suggestions %}<li class="mb-2">{{ s }}</li>{% endfor %}</ol>
+        </div></div>
+      </div>
+    </div>
+    {% if show_risk %}
+    <div class="card mb-3"><div class="card-header">Current risk indicator</div><div class="card-body">
+      {% if prediction %}
+        <div class="d-flex align-items-center gap-3 mb-3">{{ risk_badge(prediction.risk_level) }}<span class="small text-muted">assessed {{ prediction.created_at|dt }}</span></div>
+        <p class="small">This indicator is produced by a statistical model as an early signal so that you and your faculty can act in time. It is <strong>not</strong> a grade or a judgement, and it changes as your indicators change.</p>
+        {% if explanation.model_factors %}
+          <h6 class="section-title">What influenced it most</h6>
+          {{ factor_rows(explanation.model_factors[:4]) }}
+          <div class="small text-muted mt-2">Red values push the indicator towards higher risk compared with a typical student; green values reduce it.</div>
+        {% endif %}
+      {% else %}{{ empty('bi-activity', 'No risk assessment yet', 'Your faculty have not generated a risk indicator for you.') }}{% endif %}
+    </div></div>
+    {% endif %}
+    <div class="card"><div class="card-header">Support sessions with faculty</div>
+      {% if interventions %}
+        <table class="table table-sm mb-0"><thead><tr><th>Date</th><th>Type</th><th>Status</th><th>Follow-up</th></tr></thead>
+          <tbody>{% for i in interventions %}<tr><td>{{ i.intervention_date }}</td><td>{{ i.intervention_type }}</td><td>{{ i.status }}</td><td>{{ i.follow_up_date|dash }}</td></tr>{% endfor %}</tbody></table>
+      {% else %}<div class="card-body small text-muted">No support sessions have been scheduled. Contact your faculty mentor if you would like help with any subject.</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  (function(){ var pts = []; {% for a in assessments %}pts.push({label: "{{ a.recorded_on }} · {{ a.title|e }}", score: {{ a.score_pct }}});{% endfor %} TrackWell.scoreTrendChart("trendChart", pts); })();
+</script>
+{% endblock %}

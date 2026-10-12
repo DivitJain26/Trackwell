@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Sign in{% endblock %} · TrackWell</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/trackwell.css') }}">
+</head>
+<body>
+<div class="login-page">
+  <div class="login-card">
+    <div class="brand">TrackWell</div>
+    <div class="inst">AI-Based At-Risk Student Identification &amp; Early Intervention Platform<br>MIT School of Computing, MIT-ADT University</div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} py-2">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block body %}{% endblock %}
+  </div>
+</div>
+</body>
+</html>

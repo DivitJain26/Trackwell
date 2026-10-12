@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}My dashboard{% endblock %}
+{% block content %}
+<div class="card"><div class="card-body">{{ empty('bi-person-x', 'Your account is not linked to a student record', 'Please ask the administrator to link your login to your student ID.') }}</div></div>
+{% endblock %}

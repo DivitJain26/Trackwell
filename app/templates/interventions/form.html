@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field_errors %}
+{% block title %}{{ 'Record intervention' if mode == 'new' else 'Edit intervention' }}{% endblock %}
+{% block crumbs %}<div class="crumbs">For <a href="{{ url_for('students.detail', pk=student.id) }}">{{ student.student_id }} · {{ student.name }}</a> ({{ student.class_name }})</div>{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-7">
+<div class="card"><div class="card-header">{{ 'New intervention' if mode == 'new' else 'Intervention #' ~ intervention.id }}</div><div class="card-body">
+  {{ field_errors(errors) }}
+  {% if alert_fk %}<div class="alert alert-info py-2 small">This intervention will be linked to the alert you reviewed.</div>{% endif %}
+  <form method="post" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if alert_fk %}<input type="hidden" name="alert" value="{{ alert_fk }}">{% endif %}
+    <div class="row g-3">
+      <div class="col-md-6"><label class="form-label" for="intervention_date">Intervention date *</label>
+        <input class="form-control" type="date" id="intervention_date" name="intervention_date" value="{{ data.intervention_date }}" required></div>
+      <div class="col-md-6"><label class="form-label" for="intervention_type">Intervention type *</label>
+        <select class="form-select" id="intervention_type" name="intervention_type" required><option value="">Select…</option>
+          {% for t in types %}<option value="{{ t }}" {{ 'selected' if data.intervention_type == t }}>{{ t }}</option>{% endfor %}</select></div>
+      <div class="col-md-6"><label class="form-label" for="faculty_user_fk">Faculty member responsible *</label>
+        <select class="form-select" id="faculty_user_fk" name="faculty_user_fk">{% for u in faculty %}<option value="{{ u.id }}" {{ 'selected' if data.faculty_user_fk == u.id }}>{{ u.full_name }} ({{ u.role }})</option>{% endfor %}</select></div>
+      <div class="col-md-6"><label class="form-label" for="status">Status *</label>
+        <select class="form-select" id="status" name="status">{% for s in statuses %}<option value="{{ s }}" {{ 'selected' if data.status == s }}>{{ s }}</option>{% endfor %}</select></div>
+      <div class="col-12"><label class="form-label" for="notes">Notes <span class="text-muted">(faculty only, never shown to students)</span></label>
+        <textarea class="form-control" id="notes" name="notes" rows="3" maxlength="2000">{{ data.notes or '' }}</textarea></div>
+      <div class="col-md-6"><label class="form-label" for="follow_up_date">Follow-up date</label>
+        <input class="form-control" type="date" id="follow_up_date" name="follow_up_date" value="{{ data.follow_up_date or '' }}"></div>
+      <div class="col-md-6"><label class="form-label" for="follow_up_outcome">Follow-up outcome</label>
+        <input class="form-control" id="follow_up_outcome" name="follow_up_outcome" value="{{ data.follow_up_outcome or '' }}" maxlength="500" placeholder="e.g. Attendance improved to 78%"></div>
+    </div>
+    <div class="d-flex gap-2 mt-3">
+      <button class="btn btn-primary" type="submit">{{ 'Save intervention' if mode == 'new' else 'Save changes' }}</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('students.detail', pk=student.id) }}#interventions">Cancel</a>
+    </div>
+  </form>
+  {% if mode == 'edit' %}
+  <form method="post" action="{{ url_for('interventions.delete', pk=intervention.id) }}" class="mt-3 text-end" data-confirm="Delete this intervention record?">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger" type="submit">Delete this intervention</button></form>
+  {% endif %}
+  <div class="form-text mt-3">Intervention outcomes are recorded for follow-up only. They are <strong>not</strong> used automatically as training labels for the model.</div>
+</div></div></div></div>
+{% endblock %}

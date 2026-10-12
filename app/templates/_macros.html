@@ -1,0 +1,68 @@
+{% macro risk_badge(level, score=None) -%}
+  {% if level %}
+    <span class="risk-badge {{ level|risk_class }}">{{ level }} Risk{% if score is not none %} <span class="fw-normal">· {{ score|num(0) }}</span>{% endif %}</span>
+  {% else %}
+    <span class="risk-badge risk-none">Not predicted</span>
+  {% endif %}
+{%- endmacro %}
+
+{% macro prob_bar(p_low, p_medium, p_high) -%}
+  <div class="prob-bar" title="Low {{ (p_low*100)|round(0)|int }}% · Medium {{ (p_medium*100)|round(0)|int }}% · High {{ (p_high*100)|round(0)|int }}%">
+    <span class="p-low" style="width: {{ (p_low*100)|round(1) }}%"></span>
+    <span class="p-medium" style="width: {{ (p_medium*100)|round(1) }}%"></span>
+    <span class="p-high" style="width: {{ (p_high*100)|round(1) }}%"></span>
+  </div>
+{%- endmacro %}
+
+{% macro factor_rows(factors) -%}
+  {% set maxc = (factors | map(attribute='contribution') | map('abs') | max) if factors else 1 %}
+  {% set scale = maxc if maxc and maxc > 0 else 1 %}
+  {% for f in factors %}
+    <div class="factor-row">
+      <div>
+        <div>{{ f.label }}</div>
+        <div class="text-muted small">Value: {{ f.value }}{% if f.reference is not none %} · typical: {{ f.reference if f.reference is string else f.reference|num(1) }}{% endif %}</div>
+      </div>
+      <div class="factor-bar">
+        {% if f.contribution > 0 %}
+          <span class="pos" style="width: {{ (50 * f.contribution / scale)|round(1) }}%"></span>
+        {% elif f.contribution < 0 %}
+          <span class="neg" style="width: {{ (50 * (-f.contribution) / scale)|round(1) }}%"></span>
+        {% endif %}
+      </div>
+      <div class="text-end small {{ 'text-danger' if f.contribution > 0 else 'text-success' if f.contribution < 0 else 'text-muted' }}">
+        {{ '%+.1f'|format(f.contribution) }}
+      </div>
+    </div>
+  {% endfor %}
+{%- endmacro %}
+
+{% macro observation_list(observations) -%}
+  <ul class="obs-list">
+    {% for o in observations %}
+      <li class="sev-{{ o.severity }}">{{ o.text }}</li>
+    {% endfor %}
+  </ul>
+{%- endmacro %}
+
+{% macro empty(icon, title, text='', cta_url=None, cta_label=None) -%}
+  <div class="empty-state">
+    <i class="bi {{ icon }}"></i>
+    <div class="fw-semibold text-body">{{ title }}</div>
+    {% if text %}<div class="small mt-1">{{ text }}</div>{% endif %}
+    {% if cta_url %}<a class="btn btn-sm btn-outline-primary mt-3" href="{{ cta_url }}">{{ cta_label }}</a>{% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro status_badge(status) -%}
+  {% set cls = {'Planned': 'text-bg-secondary', 'In Progress': 'text-bg-primary', 'Completed': 'text-bg-success', 'Cancelled': 'text-bg-light border'} %}
+  <span class="badge {{ cls.get(status, 'text-bg-secondary') }}">{{ status }}</span>
+{%- endmacro %}
+
+{% macro field_errors(errors) -%}
+  {% if errors %}
+    <div class="alert alert-danger py-2">
+      <ul class="mb-0 ps-3">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+{%- endmacro %}

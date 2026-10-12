@@ -1,0 +1,21 @@
+{% extends "auth/_bare.html" %}
+{% block body %}
+  {% if needs_setup %}
+    <div class="alert alert-info py-2">
+      No administrator account exists yet. <a href="{{ url_for('auth.setup') }}" class="alert-link">Create the first administrator account</a> to get started.
+    </div>
+  {% endif %}
+  <form method="post" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-3">
+      <label class="form-label" for="username">Username</label>
+      <input class="form-control" id="username" name="username" autocomplete="username" required autofocus>
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="password">Password</label>
+      <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn btn-primary w-100" type="submit">Sign in</button>
+  </form>
+  <p class="text-muted small mt-3 mb-0">Access is restricted to registered faculty, administrators and students. Contact the administrator if you have forgotten your password.</p>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}CSV import{% endblock %}
+{% block crumbs %}<div class="crumbs">Upload student records, review the validation report, then confirm the import</div>{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">1. Upload a CSV file</div><div class="card-body">
+      <form method="post" action="{{ url_for('imports.preview') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3"><label class="form-label" for="file">CSV file (max 5 MB, up to 5000 rows)</label>
+          <input class="form-control" type="file" id="file" name="file" accept=".csv,text/csv" required></div>
+        <button class="btn btn-primary" type="submit" data-loading="Validating…"><i class="bi bi-search"></i> Validate and preview</button>
+        <a class="btn btn-outline-secondary ms-2" href="{{ url_for('imports.template') }}"><i class="bi bi-download"></i> Download template</a>
+      </form>
+      <p class="small text-muted mt-3 mb-0">Nothing is written to the database until you confirm the import on the preview page. Invalid rows are reported and never imported silently.</p>
+    </div></div>
+    <div class="card mt-3"><div class="card-header">Demonstration data</div><div class="card-body small">
+      <div class="demo-note mb-2">The file <span class="code">data/sample_students.csv</span> in the project folder contains <strong>synthetic</strong> records generated for demonstration. They do not describe real students of any university.</div>
+      You can upload it here to populate the application for a demo, or run <span class="code">python scripts/seed_demo.py</span>.
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Expected columns</div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Column</th><th>Required</th><th>Accepted values</th></tr></thead>
+        <tbody>
+          <tr><td class="code">student_id</td><td>Yes</td><td>Letters, digits, - _ / (max 30). Must be unique.</td></tr>
+          <tr><td class="code">name</td><td>Yes</td><td>2-100 characters</td></tr>
+          <tr><td class="code">class_name</td><td>Yes</td><td>e.g. TY CSE A</td></tr>
+          <tr><td class="code">semester</td><td>Yes</td><td>1-8</td></tr>
+          <tr><td class="code">attendance_pct</td><td>Yes</td><td>0-100</td></tr>
+          <tr><td class="code">previous_gpa</td><td>No</td><td>0-10</td></tr>
+          <tr><td class="code">quiz_score</td><td>No</td><td>0-100 (average %)</td></tr>
+          <tr><td class="code">test_score</td><td>No</td><td>0-100 (average %)</td></tr>
+          <tr><td class="code">assignment_completion_pct</td><td>Yes</td><td>0-100</td></tr>
+          <tr><td class="code">study_hours</td><td>No</td><td>0-16 (daily average)</td></tr>
+          <tr><td class="code">participation</td><td>Yes</td><td>Low / Medium / High</td></tr>
+          <tr><td class="code">engagement_level</td><td>Yes</td><td>Low / Medium / High</td></tr>
+          <tr><td class="code">self_understanding</td><td>No</td><td>1-5</td></tr>
+        </tbody></table></div>
+      <div class="card-footer small text-muted">Column names are case-insensitive; spaces are converted to underscores. Blank optional cells are stored as "not recorded" and imputed by the model.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

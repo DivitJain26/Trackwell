@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}File too large{% endblock %}
+{% block content %}
+<div class="card"><div class="card-body empty-state">
+  <i class="bi bi-exclamation-circle"></i>
+  <div class="h5 text-body">413 · File too large</div>
+  <p class="mb-3">The uploaded file exceeds the 5 MB limit. Split the CSV into smaller files and try again.</p>
+  <a class="btn btn-outline-primary btn-sm" href="{{ url_for('main.index') }}">Go to home page</a>
+</div></div>
+{% endblock %}

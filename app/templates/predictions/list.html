@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% from "_macros.html" import risk_badge, prob_bar, empty %}
+{% block title %}Risk predictions{% endblock %}
+{% block crumbs %}<div class="crumbs">Latest prediction per student{% if model.available %} · active model {{ model.version }} ({{ model.algorithm }}){% endif %}</div>{% endblock %}
+{% block actions %}
+  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('predictions.export_csv', **request.args) }}"><i class="bi bi-download"></i> Export CSV</a>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-lg-5">
+    <div class="card h-100"><div class="card-header">Generate predictions</div><div class="card-body">
+      {% if not model.available %}
+        <div class="alert alert-warning py-2 small mb-0"><i class="bi bi-cpu me-1"></i>{{ model.message }} <a class="alert-link" href="{{ url_for('model.index') }}">Open model page</a>.</div>
+      {% elif total_students == 0 %}
+        <div class="alert alert-secondary py-2 small mb-0">No students are registered yet. <a class="alert-link" href="{{ url_for('students.new') }}">Add students</a> or <a class="alert-link" href="{{ url_for('imports.upload') }}">import a CSV</a> first.</div>
+      {% else %}
+      <form method="post" action="{{ url_for('predictions.run') }}" class="row g-2 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-7"><label class="form-label small mb-0" for="scope">Scope</label>
+          <select class="form-select form-select-sm" id="scope" name="scope">
+            <option value="all">All students ({{ total_students }})</option>
+            <option value="unpredicted">Only students without a prediction</option>
+            <option value="class">One class…</option></select></div>
+        <div class="col-5" id="class-pick" style="display:none"><label class="form-label small mb-0" for="class_name">Class</label>
+          <select class="form-select form-select-sm" id="class_name" name="class_name">{% for c in classes %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select></div>
+        <div class="col-12"><button class="btn btn-primary btn-sm" type="submit" data-loading="Running model…"><i class="bi bi-play-fill"></i> Run active model</button></div>
+      </form>
+      <p class="small text-muted mt-3 mb-0">Each run stores a new timestamped prediction per student and raises alerts for new High Risk cases or increases in risk level. Predictions are decision-support signals; review each student's context before acting.</p>
+      {% endif %}
+    </div></div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card h-100"><div class="card-header">Current distribution</div><div class="card-body">
+      {% if predictions or counts.High + counts.Medium + counts.Low > 0 %}
+      <div class="row">
+        <div class="col-md-6"><div class="chart-box sm"><canvas id="riskChart"></canvas></div></div>
+        <div class="col-md-6 small">
+          <h6 class="section-title">How categories are assigned</h6>
+          <p class="mb-1">The model outputs a probability for each class. The <strong>predicted category is the class with the highest probability</strong>.</p>
+          <p class="mb-1">The <strong>risk score</strong> (0-100) = 100 × (0.5 × P(Medium) + P(High)) and is used only for sorting.</p>
+          <p class="mb-0 text-muted">Probabilities from a model trained on the bundled synthetic data are illustrative, not calibrated estimates of real outcomes.</p>
+        </div>
+      </div>
+      {% else %}{{ empty('bi-pie-chart', 'No predictions yet', 'Run the model to populate this page.') }}{% endif %}
+    </div></div>
+  </div>
+</div>
+
+<div class="card mb-3"><div class="card-body py-2">
+  <form class="row g-2 align-items-end" method="get">
+    <div class="col-md-3"><label class="form-label small mb-0" for="f_class">Class</label>
+      <select class="form-select form-select-sm" id="f_class" name="class_name"><option value="">All</option>{% for c in classes %}<option value="{{ c }}" {{ 'selected' if filters.class_name == c }}>{{ c }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><label class="form-label small mb-0" for="f_sem">Semester</label>
+      <select class="form-select form-select-sm" id="f_sem" name="semester"><option value="">All</option>{% for s in semesters %}<option value="{{ s }}" {{ 'selected' if filters.semester == s|string }}>{{ s }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><label class="form-label small mb-0" for="f_risk">Risk level</label>
+      <select class="form-select form-select-sm" id="f_risk" name="risk"><option value="">All</option>{% for r in ['High', 'Medium', 'Low'] %}<option value="{{ r }}" {{ 'selected' if filters.risk == r }}>{{ r }}</option>{% endfor %}</select></div>
+    <div class="col-md-2 d-flex gap-1"><button class="btn btn-sm btn-primary" type="submit">Filter</button><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('predictions.index') }}">Clear</a></div>
+  </form>
+</div></div>
+
+<div class="card">
+  {% if predictions %}
+  <div class="table-responsive"><table class="table table-hover table-sm mb-0">
+    <thead><tr><th>Student</th><th>Class</th><th>Risk</th><th style="min-width:160px">Probabilities</th><th>Top model factors</th><th>Attendance</th><th>Assignments</th><th>Model</th><th>Predicted</th></tr></thead>
+    <tbody>
+    {% for p in predictions %}
+      {% set exp = parse(p) %}
+      <tr>
+        <td><a href="{{ url_for('students.detail', pk=p.student_fk) }}">{{ p.student_id }}</a><div class="small text-muted">{{ p.name }}</div></td>
+        <td>{{ p.class_name }} · S{{ p.semester }}</td>
+        <td>{{ risk_badge(p.risk_level, p.risk_score) }}</td>
+        <td>{{ prob_bar(p.prob_low, p.prob_medium, p.prob_high) }}</td>
+        <td class="small">{% for f in exp.model_factors[:3] %}<div><span class="{{ 'text-danger' if f.contribution > 0 else 'text-success' }}">{{ '%+.1f'|format(f.contribution) }}</span> {{ f.label }}</div>{% endfor %}</td>
+        <td>{{ p.attendance_pct|pct }}</td><td>{{ p.assignment_completion_pct|pct(0) }}</td>
+        <td class="small">{{ p.model_version }}</td><td class="small text-muted">{{ p.created_at|dt }}</td>
+      </tr>
+    {% endfor %}
+    </tbody></table></div>
+  <div class="card-footer small text-muted">{{ predictions|length }} student(s) shown. Factor values are risk-score points relative to the training-set typical student.</div>
+  {% else %}
+    <div class="card-body">{{ empty('bi-activity', 'No predictions to show', 'Generate predictions above, or clear the filters.') }}</div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  TrackWell.riskDistributionChart("riskChart", {{ counts|tojson }}, 0);
+  (function () {
+    var scope = document.getElementById("scope"), pick = document.getElementById("class-pick");
+    if (!scope) return;
+    scope.addEventListener("change", function () { pick.style.display = scope.value === "class" ? "" : "none"; });
+  })();
+</script>
+{% endblock %}

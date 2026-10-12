@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set m = v.metrics %}
+{% block title %}Model {{ v.version }}{% endblock %}
+{% block page_title %}Model {{ v.version }} <span class="text-muted fw-normal">· {{ v.algorithm }}</span>{% endblock %}
+{% block crumbs %}<div class="crumbs">Trained {{ v.trained_at }} UTC on {{ v.dataset_source }} ({{ v.dataset_rows }} rows: {{ v.metrics.train_rows }} train / {{ v.metrics.test_rows }} test){% if v.is_active %} · <span class="text-success">active</span>{% endif %}</div>{% endblock %}
+{% block actions %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('model.index') }}">Back to model status</a>{% endblock %}
+{% block content %}
+<div class="demo-note small mb-3">Metrics below were computed on a held-out 20% split of <strong>{{ v.dataset_source }}</strong>. If this is the bundled synthetic dataset, they only demonstrate that the pipeline functions and must not be quoted as real-world performance.</div>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card stat border-accent"><div class="label">Accuracy</div><div class="value">{{ '%.1f'|format(m.accuracy*100) }}%</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat border-accent"><div class="label">Macro precision</div><div class="value">{{ '%.3f'|format(m.precision_macro) }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat border-accent"><div class="label">Macro recall</div><div class="value">{{ '%.3f'|format(m.recall_macro) }}</div></div></div>
+  <div class="col-6 col-lg-3"><div class="card stat border-high"><div class="label">Macro F1 · High recall</div><div class="value">{{ '%.3f'|format(m.f1_macro) }} · {{ '%.3f'|format(m.recall_high) }}</div></div></div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card mb-3"><div class="card-header">Candidate comparison <span class="text-muted small">· selection rule: {{ m.selection_rule }}</span></div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Model</th><th>CV F1 (train)</th><th>Accuracy</th><th>Macro F1</th><th>High recall</th><th>High precision</th><th>Selection</th></tr></thead>
+        <tbody>{% for c in v.candidates %}{% set cm = c.metrics %}
+          <tr class="{{ 'table-success' if c.name == v.algorithm }}"><td>{{ c.name }}{% if c.name == v.algorithm %} <i class="bi bi-check-circle-fill text-success"></i>{% endif %}</td>
+            <td>{{ '%.3f'|format(cm.cv_f1_macro_mean) }} ± {{ '%.3f'|format(cm.cv_f1_macro_std) }}</td><td>{{ '%.3f'|format(cm.accuracy) }}</td><td>{{ '%.3f'|format(cm.f1_macro) }}</td>
+            <td>{{ '%.3f'|format(cm.recall_high) }}</td><td>{{ '%.3f'|format(cm.precision_high) }}</td><td><strong>{{ '%.3f'|format(cm.selection_score) }}</strong></td></tr>
+        {% endfor %}</tbody></table></div></div>
+    <div class="card mb-3"><div class="card-header">Per-class metrics (selected model, test split)</div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead>
+        <tbody>{% for cls in ['Low', 'Medium', 'High'] %}{% set pc = m.per_class[cls] %}
+          <tr><td><span class="risk-dot {{ cls|risk_class }}"></span>{{ cls }}</td><td>{{ '%.3f'|format(pc.precision) }}</td><td>{{ '%.3f'|format(pc.recall) }}</td><td>{{ '%.3f'|format(pc['f1-score']) }}</td><td>{{ pc.support|int }}</td></tr>
+        {% endfor %}</tbody></table></div></div>
+    <div class="card"><div class="card-header">Confusion matrix (rows = actual, columns = predicted)</div><div class="card-body">
+      <table class="table table-sm table-bordered cm-table mb-0 w-auto">
+        <thead><tr><th></th>{% for cls in ['Low', 'Medium', 'High'] %}<th>Pred. {{ cls }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for row in m.confusion_matrix %}{% set i = loop.index0 %}
+          <tr><th>Actual {{ ['Low', 'Medium', 'High'][i] }}</th>{% for val in row %}<td class="{{ 'diag' if loop.index0 == i }}">{{ val }}</td>{% endfor %}</tr>
+        {% endfor %}</tbody></table>
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card mb-3"><div class="card-header">Global feature importance <span class="text-muted small">· {{ m.global_importance[0].kind.replace('_', ' ') if m.global_importance else '' }}</span></div>
+      <div class="card-body"><div class="chart-box"><canvas id="importanceChart"></canvas></div>
+        <p class="small text-muted mt-2 mb-0">{% if m.global_importance and m.global_importance[0].kind == 'tree_feature_importance' %}Impurity-based importance from the fitted tree ensemble, summed over one-hot columns and normalised.{% else %}Mean absolute standardised coefficient across classes, summed over one-hot columns and normalised. Shows which inputs most influence the linear model overall.{% endif %}</p></div></div>
+    <div class="card mb-3"><div class="card-header">Feature schema</div><div class="card-body small">
+      <p class="mb-1"><strong>Raw numeric inputs:</strong> {{ v.feature_schema.raw_numeric|join(', ') }}</p>
+      <p class="mb-1"><strong>Raw categorical inputs:</strong> {{ v.feature_schema.raw_categorical|join(', ') }}</p>
+      <p class="mb-1"><strong>Derived features:</strong> avg_score (mean of quiz and test), attendance_level (Low &lt; 65, Borderline 65-75, Good ≥ 75)</p>
+      <p class="mb-1"><strong>Preprocessing:</strong> median imputation + standard scaling (numeric); most-frequent imputation + one-hot encoding (categorical). Fitted on training data only.</p>
+      <p class="mb-1"><strong>Target:</strong> {{ v.feature_schema.target_definition }}</p>
+      <p class="mb-0"><strong>Class distribution:</strong> {% for k, n in m.class_distribution.items() %}{{ k }} {{ n }}{{ ', ' if not loop.last }}{% endfor %} · scikit-learn {{ m.sklearn_version }}</p>
+    </div></div>
+    {% if v.notes %}<div class="card"><div class="card-header">Notes</div><div class="card-body small">{{ v.notes }}</div></div>{% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  var labels = {{ feature_labels|tojson }};
+  var items = {{ m.global_importance[:10]|tojson }}.map(function (i) { return { label: labels[i.feature] || i.feature, importance: i.importance }; });
+  TrackWell.importanceChart("importanceChart", items);
+</script>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}Audit log{% endblock %}
+{% block crumbs %}<div class="crumbs">Most recent 200 events. Passwords are never recorded.</div>{% endblock %}
+{% block content %}
+<div class="card"><div class="table-responsive">
+<table class="table table-sm table-hover mb-0">
+  <thead><tr><th>Time (UTC)</th><th>User</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead>
+  <tbody>
+  {% for e in events %}
+    <tr><td class="text-muted text-nowrap">{{ e.created_at }}</td><td>{{ e.username|dash }}</td><td>{{ e.action }}</td>
+        <td>{{ e.entity_type|dash }} {{ e.entity_id or '' }}</td><td class="small text-muted">{{ e.details|dash }}</td></tr>
+  {% else %}
+    <tr><td colspan="5">{{ empty('bi-journal', 'No events recorded') }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}
